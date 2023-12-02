@@ -413,7 +413,7 @@ func (term *mockTerminal) writeRawChar(b byte) {
 }
 
 // TODO https://github.com/kube-compose/kube-compose/issues/227 reduce cyclomatic complexity of this function
-//nolint
+// nolint
 func (term *mockTerminal) Write(p []byte) (int, error) {
 	if term.writeError != nil {
 		return 0, term.writeError

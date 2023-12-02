@@ -3,17 +3,17 @@ package config
 import (
 	"fmt"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/kube-compose/kube-compose/internal/pkg/util"
 	dockerComposeConfig "github.com/kube-compose/kube-compose/pkg/docker/compose/config"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	"github.com/uber-go/mapdecode"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/rest"
 )
 
 type DockerRegistryClusterImageStorage struct {
-	Host string
+	Host          string
 	HostInCluster string
 }
 
@@ -142,7 +142,7 @@ func loadClusterImageStorage(cfg *Config, v *clusterImageStorage) error {
 				"\"host\"")
 		}
 		cfg.ClusterImageStorage.DockerRegistry = &DockerRegistryClusterImageStorage{
-			Host: *v.Host,
+			Host:          *v.Host,
 			HostInCluster: *v.HostInCluster,
 		}
 	default:

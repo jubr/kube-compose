@@ -203,7 +203,7 @@ func FindDigest(s string) string {
 	loc := digestRegexp.FindStringIndex(s)
 	if loc != nil {
 		i := sha256BitLength/4 + len(sha256Prefix)
-		return s[ loc[0] : loc[0]+i ]
+		return s[loc[0] : loc[0]+i]
 	}
 
 	matches := digestRegexpAlt.FindStringSubmatch(s)

@@ -1,6 +1,7 @@
 package details
 
 import (
+	"context"
 	"github.com/kube-compose/kube-compose/internal/app/config"
 	"github.com/kube-compose/kube-compose/internal/app/k8smeta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,7 +46,7 @@ func (g *getRunner) run() (*ServiceDetails, error) {
 		return nil, err
 	}
 	k8sName := k8smeta.GetK8sName(g.service, g.cfg)
-	result, err := g.k8sServiceClient.Get(k8sName, metav1.GetOptions{})
+	result, err := g.k8sServiceClient.Get(context.Background(), k8sName, metav1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

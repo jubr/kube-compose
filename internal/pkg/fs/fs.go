@@ -268,7 +268,7 @@ func NewInMemoryUnixFileSystem(data map[string]InMemoryFile) *InMemoryFileSystem
 	}
 	for name, vfile := range data {
 		// Ignoring pointer to range variable linting error here.
-		// nolint
+		//nolint
 		fs.Set(name, &vfile)
 	}
 	return fs

@@ -1,15 +1,16 @@
 package down
 
 import (
-	log "github.com/Sirupsen/logrus"
+	"context"
 	"github.com/kube-compose/kube-compose/internal/app/config"
 	"github.com/kube-compose/kube-compose/internal/app/k8smeta"
+	log "github.com/sirupsen/logrus"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	clientV1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-type deleter func(name string, options *metav1.DeleteOptions) error
+type deleter func(ctx context.Context, name string, options metav1.DeleteOptions) error
 
 type lister func(listOptions metav1.ListOptions) ([]*metav1.ObjectMeta, error)
 
@@ -31,7 +32,7 @@ func (d *downRunner) initKubernetesClientset() error {
 	return nil
 }
 
-func (d *downRunner) deleteCommon(kind string, lister lister, deleter deleter) (bool, error) {
+func (d *downRunner) deleteCommon(ctx context.Context, kind string, lister lister, deleter deleter) (bool, error) {
 	listOptions := metav1.ListOptions{
 		LabelSelector: d.cfg.EnvironmentLabel + "=" + d.cfg.EnvironmentID,
 	}
@@ -44,7 +45,7 @@ func (d *downRunner) deleteCommon(kind string, lister lister, deleter deleter) (
 	for _, item := range list {
 		composeService := k8smeta.FindFromObjectMeta(d.cfg, item)
 		if composeService == nil || d.cfg.MatchesFilter(composeService) {
-			err = deleter(item.Name, deleteOptions)
+			err = deleter(context.Background(), item.Name, *deleteOptions)
 			if err != nil {
 				return false, err
 			}
@@ -61,7 +62,7 @@ func (d *downRunner) deleteCommon(kind string, lister lister, deleter deleter) (
 // nolint
 func (d *downRunner) deleteServices() (bool, error) {
 	lister := func(listOptions metav1.ListOptions) ([]*metav1.ObjectMeta, error) {
-		serviceList, err := d.k8sServiceClient.List(listOptions)
+		serviceList, err := d.k8sServiceClient.List(context.Background(), listOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -71,7 +72,7 @@ func (d *downRunner) deleteServices() (bool, error) {
 		}
 		return list, nil
 	}
-	return d.deleteCommon("Service", lister, d.k8sServiceClient.Delete)
+	return d.deleteCommon(context.Background(), "Service", lister, d.k8sServiceClient.Delete)
 }
 
 // Linter reports code duplication amongst deleteServices and deletePods. Although this is true, deduplicating would require the use of
@@ -79,7 +80,7 @@ func (d *downRunner) deleteServices() (bool, error) {
 // nolint
 func (d *downRunner) deletePods() (bool, error) {
 	lister := func(listOptions metav1.ListOptions) ([]*metav1.ObjectMeta, error) {
-		podList, err := d.k8sPodClient.List(listOptions)
+		podList, err := d.k8sPodClient.List(context.Background(), listOptions)
 		if err != nil {
 			return nil, err
 		}
@@ -89,7 +90,7 @@ func (d *downRunner) deletePods() (bool, error) {
 		}
 		return list, nil
 	}
-	return d.deleteCommon("Pod", lister, d.k8sPodClient.Delete)
+	return d.deleteCommon(context.Background(), "Pod", lister, d.k8sPodClient.Delete)
 }
 
 func (d *downRunner) run() error {

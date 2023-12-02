@@ -9,6 +9,7 @@ import (
 )
 
 const testDigest = "sha256:f0b6db8bb4b757d0c3c9e120f4ac091286be5815ad576fbd48d8b953e8d2b06d"
+
 var testDigestWithoutPrefix = testDigest[7:]
 
 func TestPullProgress_Done(t *testing.T) {

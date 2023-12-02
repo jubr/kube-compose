@@ -6,9 +6,9 @@ import (
 
 	"text/template"
 
-	log "github.com/Sirupsen/logrus"
 	details "github.com/kube-compose/kube-compose/internal/app/get"
 	"github.com/kube-compose/kube-compose/internal/pkg/util"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 

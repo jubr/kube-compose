@@ -1,51 +1,89 @@
 module github.com/kube-compose/kube-compose
 
-go 1.12
+go 1.21
 
 require (
-	github.com/Sirupsen/logrus v0.0.0-00010101000000-000000000000
 	github.com/docker/distribution v2.8.3+incompatible
-	github.com/docker/docker v1.13.1
+	github.com/docker/docker v24.0.6+incompatible
+	github.com/fsouza/go-dockerclient v1.10.0
 	github.com/hashicorp/go-version v1.6.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/pkg/errors v0.9.1
+	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.8.0
 	github.com/spf13/pflag v1.0.5
 	github.com/uber-go/mapdecode v1.0.0
 	golang.org/x/crypto v0.14.0
 	gopkg.in/yaml.v2 v2.4.0
-	k8s.io/api v0.0.0-20190111032252-67edc246be36
-	k8s.io/apimachinery v0.0.0-20190216013122-f05b8decd79c
+	k8s.io/api v0.27.1
+	k8s.io/apimachinery v0.27.1
 	k8s.io/client-go v10.0.0+incompatible
 )
 
 require (
-	github.com/Azure/go-ansiterm v0.0.0-20170929234023-d6e3b3328b78 // indirect
-	github.com/Microsoft/go-winio v0.4.12 // indirect
+	cloud.google.com/go v0.65.0 // indirect
+	github.com/Azure/go-ansiterm v0.0.0-20210617225240-d185dfc1b5a1 // indirect
+	github.com/Microsoft/go-winio v0.6.1 // indirect
+	github.com/containerd/containerd v1.6.18 // indirect
+	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/distribution/reference v0.5.0 // indirect
 	github.com/docker/go-connections v0.4.0 // indirect
-	github.com/docker/go-units v0.4.0 // indirect
-	github.com/gogo/protobuf v1.2.1 // indirect
-	github.com/golang/mock v1.3.1 // indirect
-	github.com/golang/protobuf v1.3.1 // indirect
-	github.com/google/btree v1.0.0 // indirect
-	github.com/google/gofuzz v1.0.0 // indirect
-	github.com/googleapis/gnostic v0.2.0 // indirect
-	github.com/gregjones/httpcache v0.0.0-20190212212710-3befbb6ad0cc // indirect
-	github.com/imdario/mergo v0.3.7 // indirect
-	github.com/json-iterator/go v1.1.6 // indirect
+	github.com/docker/go-units v0.5.0 // indirect
+	github.com/go-logr/logr v1.2.3 // indirect
+	github.com/gogo/protobuf v1.3.2 // indirect
+	github.com/golang/protobuf v1.5.3 // indirect
+	github.com/google/gofuzz v1.2.0 // indirect
+	github.com/googleapis/gnostic v0.4.1 // indirect
+	github.com/imdario/mergo v0.3.12 // indirect
+	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/json-iterator/go v1.1.12 // indirect
+	github.com/klauspost/compress v1.11.13 // indirect
+	github.com/moby/patternmatcher v0.6.0 // indirect
+	github.com/moby/sys/sequential v0.5.0 // indirect
+	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
-	github.com/modern-go/reflect2 v1.0.1 // indirect
-	github.com/opencontainers/runc v0.1.1 // indirect
-	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/sirupsen/logrus v1.4.2 // indirect
-	go.uber.org/atomic v1.4.0 // indirect
-	go.uber.org/multierr v1.1.0 // indirect
-	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 // indirect
+	github.com/modern-go/reflect2 v1.0.2 // indirect
+	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799 // indirect
+	github.com/opencontainers/runc v1.1.5 // indirect
+	github.com/stretchr/testify v1.8.1 // indirect
+	go.uber.org/multierr v1.11.0 // indirect
+	golang.org/x/mod v0.9.0 // indirect
+	golang.org/x/net v0.10.0 // indirect
+	golang.org/x/oauth2 v0.0.0-20220223155221-ee480838109b // indirect
+	golang.org/x/sys v0.13.0 // indirect
+	golang.org/x/term v0.13.0 // indirect
+	golang.org/x/text v0.13.0 // indirect
+	golang.org/x/time v0.0.0-20220210224613-90d013bbcef8 // indirect
+	golang.org/x/tools v0.7.0 // indirect
+	google.golang.org/appengine v1.6.7 // indirect
+	google.golang.org/protobuf v1.28.1 // indirect
+	gopkg.in/check.v1 v1.0.0-20201130134442-10cb98267c6c // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
-	k8s.io/klog v0.3.2 // indirect
-	sigs.k8s.io/yaml v1.1.0 // indirect
+	k8s.io/klog/v2 v2.90.1 // indirect
+	k8s.io/utils v0.0.0-20230209194617-a36077c30491 // indirect
+	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
+	sigs.k8s.io/yaml v1.3.0 // indirect
 )
 
-replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.4.1
+replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.9.0
+
+//replace github.com/sirupsen/logrus v1.9.0 => github.com/Sirupsen/logrus v1.9.3
+
+replace github.com/Sirupsen/logrus v1.9.0 => github.com/sirupsen/logrus v1.9.3
+
+//replace github.com/sirupsen/logrus => github.com/Sirupsen/logrus v1.4.1
+//replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.4.1
+
+//replace github.com/kube-compose/kube-compose => github.com/jubr/kube-compose v0.0.8
+
+//replace cloud.google.com/go => cloud.google.com/go v0.100.2
+replace cloud.google.com/go/compute/metadata => cloud.google.com/go/compute/metadata v0.2.0
+
+replace cloud.google.com/go v0.34.0 => cloud.google.com/go v0.2.0
+
+replace k8s.io/api => k8s.io/api v0.19.1
+
+replace k8s.io/apimachinery => k8s.io/apimachinery v0.19.1
+
+replace k8s.io/client-go => k8s.io/client-go v0.19.1

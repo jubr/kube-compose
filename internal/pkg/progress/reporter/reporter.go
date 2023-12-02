@@ -160,7 +160,7 @@ type column struct {
 }
 
 // TODO https://github.com/kube-compose/kube-compose/issues/227 reduce cyclomatic complexity of this function
-//nolint
+// nolint
 func (r *Reporter) refresh() {
 	defer func() {
 		if v := recover(); v != nil {
