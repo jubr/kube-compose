@@ -56,8 +56,7 @@ func createReadinessProbeFromDockerHealthcheck(healthcheck *dockerComposeConfig.
 		execCommand[i] = healthcheck.Test[i-offset]
 	}
 	probe := &v1.Probe{
-		FailureThreshold: retriesInt32,
-		Handler: v1.Handler{
+		ProbeHandler: v1.ProbeHandler{
 			Exec: &v1.ExecAction{
 				Command: execCommand,
 			},
@@ -71,6 +70,7 @@ func createReadinessProbeFromDockerHealthcheck(healthcheck *dockerComposeConfig.
 		TimeoutSeconds: int32(math.RoundToEven(healthcheck.Timeout.Seconds())),
 		// This is the default value.
 		// SuccessThreshold: 1,
+		FailureThreshold: retriesInt32,
 	}
 	return probe
 }
