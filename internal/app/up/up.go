@@ -16,6 +16,7 @@ import (
 	dockerRef "github.com/docker/distribution/reference"
 	dockerTypes "github.com/docker/docker/api/types"
 	dockerClient "github.com/docker/docker/client"
+	alternateDockerClient "github.com/fsouza/go-dockerclient"
 	"github.com/kube-compose/kube-compose/internal/app/config"
 	"github.com/kube-compose/kube-compose/internal/app/k8smeta"
 	"github.com/kube-compose/kube-compose/internal/pkg/docker"
