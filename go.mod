@@ -1,11 +1,12 @@
 module github.com/kube-compose/kube-compose
 
+replace github.com/kube-compose/kube-compose => ./
+
 go 1.21
 
 require (
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/docker/docker v24.0.6+incompatible
-	github.com/fsouza/go-dockerclient v1.10.0
 	github.com/hashicorp/go-version v1.6.0
 	github.com/opencontainers/go-digest v1.0.0
 	github.com/opencontainers/image-spec v1.0.3-0.20211202183452-c5a74bcca799
@@ -85,7 +86,6 @@ replace github.com/Sirupsen/logrus v1.9.0 => github.com/sirupsen/logrus v1.9.3
 //replace github.com/sirupsen/logrus => github.com/Sirupsen/logrus v1.4.1
 //replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.4.1
 
-//replace github.com/kube-compose/kube-compose => github.com/jubr/kube-compose v0.0.8
 
 //replace cloud.google.com/go => cloud.google.com/go v0.100.2
 replace cloud.google.com/go/compute/metadata => cloud.google.com/go/compute/metadata v0.2.0
