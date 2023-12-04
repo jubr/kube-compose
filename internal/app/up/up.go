@@ -3,8 +3,11 @@ package up
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
+	"k8s.io/utils/strings/slices"
 	"os"
 	"strings"
 	"sync"
@@ -105,6 +108,7 @@ type localImagesCache struct {
 }
 
 type upRunner struct {
+	authConfigurations    *alternateDockerClient.AuthConfigurations
 	apps                  map[string]*app
 	appsThatNeedToBeReady map[*app]bool
 	appsToBeStarted       map[*app]bool
@@ -265,16 +269,8 @@ func (u *upRunner) getAppVolumeInitImage(a *app) error {
 
 func (u *upRunner) pushImage(sourceImageID, name, tag, imageDescr string, a *app) (podImage string, err error) {
 	var registryInCluster = u.cfg.ClusterImageStorage.DockerRegistry.HostInCluster
-	var user = u.opts.RegistryUser
-	var pass = util.Ternary(u.opts.RegistryPass, u.cfg.KubeConfig.BearerToken)
 	var imagePath = u.cfg.Namespace
 
-	// check if we even need to push it?
-	if strings.HasPrefix(sourceImageID, registryInCluster) || strings.HasPrefix(sourceImageID, u.cfg.ClusterImageStorage.DockerRegistry.Host) {
-		log.Debugf("source image %s does not need to be pushed to %s, leaving unmodified\n", sourceImageID, u.cfg.ClusterImageStorage.DockerRegistry.Host)
-		podImage = sourceImageID
-		return
-	}
 	pt := a.reporterRow.AddProgressTask("pushing " + imageDescr)
 	defer pt.Done()
 	a.reporterRow.AddStatus(reporter.StatusDockerPush)
@@ -286,16 +282,18 @@ func (u *upRunner) pushImage(sourceImageID, name, tag, imageDescr string, a *app
 		return
 	}
 	var digest string
-	registryAuth := docker.EncodeRegistryAuth(user, pass)
-	log.Tracef("pushing %s\n", imagePush)
+	registryAuth, _ := u.getAuthForImage(imagePush, a)
+	log.Debugf("pushing %s\n", imagePush)
 	digest, err = docker.PushImage(u.opts.Context, u.dockerClient, imagePush, registryAuth, func(push *docker.PullOrPush) {
 		pt.Update(push.Progress())
 	})
-	log.Tracef("pushing %s done\n", imagePush)
 	if err != nil {
-		err = errors.Wrapf(err, "pushImage failed: %s", err)
-		return
+		if strings.Contains(err.Error(), "Application not registered with AAD") {
+			log.Warnf("saw 'Application not registered with AAD': ACR credentials expired?")
+		}
+		return "", errors.Wrapf(err, "pushImage failed: %s", imagePush)
 	}
+	log.Tracef("pushing %s done\n", imagePush)
 
 	// TODO: podImage host can be one of 3 things here:
 	// - the original from sourceImageID
@@ -383,11 +381,20 @@ func (u *upRunner) getAppImageEnsureCorrectPodImage(a *app, sourceImageRef docke
 		a.imageInfo.podImagePullPolicy = v1.PullNever
 	case u.cfg.ClusterImageStorage.DockerRegistry != nil:
 		var err error
+		a.imageInfo.podImagePullPolicy = v1.PullAlways
+		// check if we even need to push it?
+		skipHosts := []string{"docker.io"}
+		registryHost := strings.Split(sourceImage, "/")[0]
+		if slices.Contains(skipHosts, registryHost) {
+			log.Debugf("skipping %s push to %s: will download in-cluster.\n", sourceImage, u.cfg.ClusterImageStorage.DockerRegistry.Host)
+			a.imageInfo.podImage = sourceImage
+			return nil
+		}
+
 		a.imageInfo.podImage, err = u.pushImage(a.imageInfo.sourceImageID, a.composeService.NameEscaped, tag, "image", a)
 		if err != nil {
-			return err
+			return errors.Wrapf(err, "failure with %s", sourceImage)
 		}
-		a.imageInfo.podImagePullPolicy = v1.PullAlways
 	case a.imageInfo.podImage == "":
 		_, sourceImageIsNamed := sourceImageRef.(dockerRef.Named)
 		if !sourceImageIsNamed {
@@ -432,9 +439,40 @@ func (u *upRunner) getAppImageInfoPullImage(sourceImageRef dockerRef.Reference, 
 	defer pt.Done()
 	a.reporterRow.AddStatus(reporter.StatusDockerPull)
 	defer a.reporterRow.RemoveStatus(reporter.StatusDockerPull)
-	return docker.PullImage(u.opts.Context, u.dockerClient, sourceImageRef.String(), "123", func(pull *docker.PullOrPush) {
+
+	auth, _ := u.getAuthForImage(sourceImageRef.String(), a)
+
+	return docker.PullImage(u.opts.Context, u.dockerClient, sourceImageRef.String(), auth, func(pull *docker.PullOrPush) {
 		pt.Update(pull.Progress())
 	})
+}
+
+func (u *upRunner) getAuthForImage(sourceImageRef string, a *app) (string, error) {
+	if u.authConfigurations == nil {
+		authConfigurations, err := alternateDockerClient.NewAuthConfigurationsFromDockerCfg()
+		if err != nil {
+			err = errors.Wrapf(err, "failed to NewAuthConfigurationsFromDockerCfg()")
+			log.Warn(err)
+			return "123", err
+		}
+		u.authConfigurations = authConfigurations
+		//log.Debugf("getAppImageAuths:%+v\n", authConfigurations)
+	}
+
+	registryHost := strings.Split(sourceImageRef, "/")[0]
+
+	// Support passing ars over the ones found in docker config.json
+	if false && registryHost == u.cfg.ClusterImageStorage.DockerRegistry.Host {
+		var user = u.opts.RegistryUser
+		var pass = util.Ternary(u.opts.RegistryPass, u.cfg.KubeConfig.BearerToken)
+		log.Debugf("Using user %s for registry: %s\n", user, registryHost)
+		return docker.EncodeRegistryAuth(user, pass), nil
+	}
+
+	log.Debugf("for sourceImageRef %s, registry: %s\n", sourceImageRef, registryHost)
+	authConfigBytes, _ := json.Marshal(u.authConfigurations.Configs[registryHost])
+	//log.Tracef("authConfigBytes:%s\n", authConfigBytes)
+	return base64.StdEncoding.EncodeToString(authConfigBytes), nil
 }
 
 func (u *upRunner) getAppImageInfoUser(a *app, inspect *dockerTypes.ImageInspect, sourceImage string) error {
