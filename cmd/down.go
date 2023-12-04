@@ -3,8 +3,8 @@ package cmd
 import (
 	"os"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/kube-compose/kube-compose/internal/app/down"
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 

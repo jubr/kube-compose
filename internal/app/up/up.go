@@ -2,13 +2,13 @@ package up
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 	"sync"
 
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/digestset"
 	dockerRef "github.com/docker/distribution/reference"
 	dockerTypes "github.com/docker/docker/api/types"
@@ -21,6 +21,7 @@ import (
 	dockerComposeConfig "github.com/kube-compose/kube-compose/pkg/docker/compose/config"
 	goDigest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -262,8 +263,6 @@ func (u *upRunner) getAppVolumeInitImage(a *app) error {
 	return nil
 }
 
-
-
 func (u *upRunner) pushImage(sourceImageID, name, tag, imageDescr string, a *app) (podImage string, err error) {
 	var registryInCluster = u.cfg.ClusterImageStorage.DockerRegistry.HostInCluster
 	var user = u.opts.RegistryUser
@@ -503,7 +502,7 @@ func (u *upRunner) waitForServiceClusterIPCountRemaining() int {
 }
 
 func (u *upRunner) waitForServiceClusterIPList(expected int, listOptions *metav1.ListOptions) (string, error) {
-	serviceList, err := u.k8sServiceClient.List(*listOptions)
+	serviceList, err := u.k8sServiceClient.List(context.Background(), *listOptions)
 	if err != nil {
 		return "", err
 	}
@@ -576,7 +575,7 @@ func (u *upRunner) waitForServiceClusterIP(expected int) error {
 	}
 	listOptions.ResourceVersion = resourceVersion
 	listOptions.Watch = true
-	watch, err := u.k8sServiceClient.Watch(listOptions)
+	watch, err := u.k8sServiceClient.Watch(context.Background(), listOptions)
 	if err != nil {
 		return err
 	}
@@ -608,7 +607,7 @@ func (u *upRunner) createServicesAndGetPodHostAliases() ([]v1.HostAlias, error) 
 			},
 		}
 		k8smeta.InitObjectMeta(u.cfg, &service.ObjectMeta, app.composeService)
-		_, err := u.k8sServiceClient.Create(service)
+		_, err := u.k8sServiceClient.Create(context.Background(), service, metav1.CreateOptions{}) // TODO? need make()?
 		switch {
 		case k8sError.IsAlreadyExists(err):
 			app.newLogEntry().Debugf("k8s service %s already exists", service.ObjectMeta.Name)
@@ -854,7 +853,7 @@ func (u *upRunner) createPod(app *app) (*v1.Pod, error) {
 
 	var imagePullSecret = os.Getenv("POD_SPEC_IMAGE_PULL_SECRET")
 	if imagePullSecret != "" {
-		pod.Spec.ImagePullSecrets = []v1.LocalObjectReference{ { Name: imagePullSecret } }
+		pod.Spec.ImagePullSecrets = []v1.LocalObjectReference{{Name: imagePullSecret}}
 	}
 
 	app.newLogEntry().Tracef("creating %s", pod)
@@ -870,7 +869,7 @@ func (u *upRunner) createPod(app *app) (*v1.Pod, error) {
 		return nil, err
 	}
 
-	podServer, err := u.k8sPodClient.Create(pod)
+	podServer, err := u.k8sPodClient.Create(context.Background(), pod, metav1.CreateOptions{})
 	if k8sError.IsAlreadyExists(err) {
 		app.newLogEntry().Debugf("pod %s already exists", pod.ObjectMeta.Name)
 	} else if err != nil {
@@ -992,7 +991,7 @@ func (u *upRunner) setAppMaxObservedPodStatus(app *app, s podStatus) {
 func (u *upRunner) streamPodLogs(pod *v1.Pod, completedChannel chan interface{}, getPodLogOptions *v1.PodLogOptions, a *app) {
 	getLogsRequest := u.k8sPodClient.GetLogs(pod.ObjectMeta.Name, getPodLogOptions)
 	var bodyReader io.ReadCloser
-	bodyReader, err := getLogsRequest.Stream()
+	bodyReader, err := getLogsRequest.Stream(context.Background())
 	if err != nil {
 		panic(err)
 	}
@@ -1074,7 +1073,7 @@ func (u *upRunner) runListPodsAndCreateThemIfNeeded() (string, error) {
 	listOptions := metav1.ListOptions{
 		LabelSelector: u.cfg.EnvironmentLabel + "=" + u.cfg.EnvironmentID,
 	}
-	podList, err := u.k8sPodClient.List(listOptions)
+	podList, err := u.k8sPodClient.List(context.Background(), listOptions)
 	if err != nil {
 		return "", err
 	}
@@ -1110,20 +1109,20 @@ func (u *upRunner) run() error {
 	for app := range u.appsToBeStarted {
 		// Begin pulling and pushing images immediately...
 		// The error returned by getAppImageInfoOnce will be handled later, hence the nolint.
-		// nolint
+		//nolint
 		go u.getAppImageInfoOnce(app)
 
 		// Start building the volume init image, if needed.
 		if len(app.volumes) > 0 {
 			// The error returned by getAppVolumeInitImageOnce will be handled later, hence the nolint.
-			// nolint
+			//nolint
 			go u.getAppVolumeInitImageOnce(app)
 		}
 	}
 	// Begin creating services and collecting their cluster IPs (we'll need this to
 	// set the hostAliases of each pod).
 	// The error returned by getAppImageInfoOnce will be handled later, hence the nolint.
-	// nolint
+	//nolint
 	go u.createServicesAndGetPodHostAliasesOnce()
 
 	err = u.runStartInitialPods()
@@ -1177,7 +1176,7 @@ func (u *upRunner) runWatchPods(resourceVersion string) error {
 	}
 	listOptions.ResourceVersion = resourceVersion
 	listOptions.Watch = true
-	watch, err := u.k8sPodClient.Watch(listOptions)
+	watch, err := u.k8sPodClient.Watch(context.Background(), listOptions)
 	if err != nil {
 		return err
 	}

@@ -4,13 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
-	"math"
-	"os"
-	"path"
-	"time"
-
-	log "github.com/Sirupsen/logrus"
 	"github.com/docker/distribution/digestset"
 	dockerRef "github.com/docker/distribution/reference"
 	dockerTypes "github.com/docker/docker/api/types"
@@ -22,8 +15,15 @@ import (
 	"github.com/kube-compose/kube-compose/internal/pkg/unix"
 	"github.com/kube-compose/kube-compose/internal/pkg/util"
 	dockerComposeConfig "github.com/kube-compose/kube-compose/pkg/docker/compose/config"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/pkg/errors"
+	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	v1 "k8s.io/api/core/v1"
+	"math"
+	"os"
+	"path"
+	"time"
 )
 
 // https://docs.docker.com/engine/reference/builder/#healthcheck
@@ -56,8 +56,7 @@ func createReadinessProbeFromDockerHealthcheck(healthcheck *dockerComposeConfig.
 		execCommand[i] = healthcheck.Test[i-offset]
 	}
 	probe := &v1.Probe{
-		FailureThreshold: retriesInt32,
-		Handler: v1.Handler{
+		ProbeHandler: v1.ProbeHandler{
 			Exec: &v1.ExecAction{
 				Command: execCommand,
 			},
@@ -71,6 +70,7 @@ func createReadinessProbeFromDockerHealthcheck(healthcheck *dockerComposeConfig.
 		TimeoutSeconds: int32(math.RoundToEven(healthcheck.Timeout.Seconds())),
 		// This is the default value.
 		// SuccessThreshold: 1,
+		FailureThreshold: retriesInt32,
 	}
 	return probe
 }
@@ -148,7 +148,7 @@ func getUserinfoFromImage(ctx context.Context, dc *dockerClient.Client, image st
 		Image:      image,
 		WorkingDir: "/",
 	}
-	resp, err := dc.ContainerCreate(ctx, containerConfig, nil, nil, "")
+	resp, err := dc.ContainerCreate(ctx, containerConfig, nil, nil, &ocispec.Platform{}, "")
 	if err != nil {
 		return err
 	}
