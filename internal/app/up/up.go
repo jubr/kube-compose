@@ -284,17 +284,21 @@ func (u *upRunner) pushImage(sourceImageID, name, tag, imageDescr string, a *app
 	}
 	var digest string
 	registryAuth, _ := u.getAuthForImage(imagePush, a)
-	log.Debugf("pushing %s\n", imagePush)
-	digest, err = docker.PushImage(u.opts.Context, u.dockerClient, imagePush, registryAuth, func(push *docker.PullOrPush) {
-		pt.Update(push.Progress())
-	})
-	if err != nil {
-		if strings.Contains(err.Error(), "Application not registered with AAD") {
-			log.Warnf("saw 'Application not registered with AAD': ACR credentials expired?")
+	if u.opts.NoPush {
+		log.Infof("--no-push %s\n", imagePush)
+	} else {
+		log.Debugf("pushing %s\n", imagePush)
+		digest, err = docker.PushImage(u.opts.Context, u.dockerClient, imagePush, registryAuth, func(push *docker.PullOrPush) {
+			pt.Update(push.Progress())
+		})
+		if err != nil {
+			if strings.Contains(err.Error(), "Application not registered with AAD") {
+				log.Warnf("saw 'Application not registered with AAD': ACR credentials expired?")
+			}
+			return "", errors.Wrapf(err, "pushImage failed: %s", imagePush)
 		}
-		return "", errors.Wrapf(err, "pushImage failed: %s", imagePush)
+		log.Tracef("pushing %s done\n", imagePush)
 	}
-	log.Tracef("pushing %s done\n", imagePush)
 
 	// TODO: podImage host can be one of 3 things here:
 	// - the original from sourceImageID
