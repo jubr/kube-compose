@@ -291,7 +291,7 @@ func (u *upRunner) pushImage(sourceImageID, name, tag, imageDescr string, a *app
 	}
 	var digest string
 	registryAuth, _ := u.getAuthForImage(imagePush, a)
-	if u.opts.NoPush {
+	if u.opts.SkipPush {
 		log.Infof("--no-push %s\n", imagePush)
 	} else {
 		log.Debugf("pushing %s\n", imagePush)
@@ -726,7 +726,11 @@ func (u *upRunner) getLocalImageIDSet() (*digestset.Set, error) {
 func (u *upRunner) createServicesAndGetPodHostAliasesOnce() ([]v1.HostAlias, error) {
 	u.hostAliases.once.Do(func() {
 		v, err := u.createServicesAndGetPodHostAliases()
-		u.hostAliases.v = v
+		if u.opts.SkipHostAliases {
+			u.hostAliases.v = []v1.HostAlias{}
+		} else {
+			u.hostAliases.v = v
+		}
 		u.hostAliases.err = err
 	})
 	return u.hostAliases.v, u.hostAliases.err

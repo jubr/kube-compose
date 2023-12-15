@@ -34,7 +34,8 @@ func newUpCli() *cobra.Command {
 	upCmd.PersistentFlags().BoolP("detach", "d", false, "Detached mode: Run containers in the background")
 	upCmd.PersistentFlags().BoolP("run-as-user", "", false, "When set, the runAsUser/runAsGroup will be set for each pod based on the "+
 		"user of the pod's image and the \"user\" key of the pod's docker-compose service")
-	upCmd.PersistentFlags().BoolP("no-push", "p", false, "Do not push images to registry: assumes they were previously pushed (helps get around connection problems to registry)")
+	upCmd.PersistentFlags().BoolP("skip-push", "p", false, "Skip pushing images to registry: assumes they were previously pushed (helps get around connection problems to registry)")
+	upCmd.PersistentFlags().BoolP("skip-host-aliases", "a", false, "Skip adding all services ClusterIP in Pod host aliases (useful when in-cluster name resolving is sufficient)")
 	upCmd.PersistentFlags().StringP(registryUserFlagName, "", registryUserFromEnv,
 		fmt.Sprintf("The docker registry user to authenticate as. Can also be set via environment variable %s. The default is common for Openshift clusters.", registryUserEnvVarName))
 	upCmd.PersistentFlags().StringP(registryPassFlagName, "", registryPassFromEnv,
@@ -51,7 +52,8 @@ func upCommand(cmd *cobra.Command, args []string) error {
 	opts.Context = context.Background()
 	opts.Detach, _ = cmd.Flags().GetBool("detach")
 	opts.RunAsUser, _ = cmd.Flags().GetBool("run-as-user")
-	opts.NoPush, _ = cmd.Flags().GetBool("no-push")
+	opts.SkipPush, _ = cmd.Flags().GetBool("skip-push")
+	opts.SkipHostAliases, _ = cmd.Flags().GetBool("skip-host-aliases")
 
 	opts.Reporter = reporter.New(os.Stdout)
 	if opts.Reporter.IsTerminal() {

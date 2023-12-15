@@ -12,8 +12,9 @@ type Options struct {
 	Reporter *reporter.Reporter
 	// True to set runAsUser/runAsGroup for each pod based on the user of the pod's image and the "user" key of the pod's docker-compose
 	// service.
-	RunAsUser bool
-	NoPush    bool
+	RunAsUser       bool
+	SkipPush        bool
+	SkipHostAliases bool
 
 	RegistryUser string
 	RegistryPass string
