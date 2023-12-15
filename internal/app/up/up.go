@@ -6,9 +6,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	//"github.com/carlmjohnson/truthy"
+	"github.com/kube-compose/kube-compose/pkg/expanduser"
 	"io"
-	"k8s.io/utils/strings/slices"
+	"io/ioutil"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -128,11 +131,13 @@ type upRunner struct {
 	dockerClient          *dockerClient.Client
 	k8sClientset          *kubernetes.Clientset
 	k8sServiceClient      clientV1.ServiceInterface
+	k8sSecretClient       clientV1.SecretInterface
 	k8sPodClient          clientV1.PodInterface
 	hostAliases           hostAliases
 	localImagesCache      localImagesCache
 	maxServiceNameLength  int
 	opts                  *Options
+	secretsDeployed       map[string]bool
 	totalVolumeCount      int
 }
 
@@ -144,6 +149,7 @@ func (u *upRunner) initKubernetesClientset() error {
 	}
 	u.k8sClientset = k8sClientset
 	u.k8sServiceClient = u.k8sClientset.CoreV1().Services(u.cfg.Namespace)
+	u.k8sSecretClient = u.k8sClientset.CoreV1().Secrets(u.cfg.Namespace)
 	u.k8sPodClient = u.k8sClientset.CoreV1().Pods(u.cfg.Namespace)
 	return nil
 }
@@ -326,6 +332,7 @@ func (u *upRunner) getAppVolumeInitImageOnce(a *app) error {
 func (u *upRunner) initApps() {
 	u.apps = make(map[string]*app, len(u.cfg.Services))
 	u.appsThatNeedToBeReady = map[*app]bool{}
+	u.secretsDeployed = map[string]bool{}
 	for _, composeService := range u.cfg.Services {
 		app := &app{
 			composeService:                       composeService,
@@ -459,21 +466,60 @@ func (u *upRunner) getAppImageInfoPullImage(sourceImageRef dockerRef.Reference, 
 	})
 }
 
+func (u *upRunner) createSecretForRegistry(registryHost string, a *app) (string, error) {
+	name := u.pullSecretNameForRegistry(registryHost)
+	if u.secretsDeployed[registryHost] {
+		return name, nil
+	}
+	// Note this 'true' also holds for Registries that have no auth info
+	u.secretsDeployed[registryHost] = true
+
+	_, err, _ := u.readAuthConfigurations()
+
+	path := expanduser.ExpandUser("~/.docker/config.json")
+	secretData, err := ioutil.ReadFile(path)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	secret := &v1.Secret{
+		Type:       "kubernetes.io/dockerconfigjson",
+		StringData: map[string]string{".dockerconfigjson": string(secretData)},
+	}
+
+	// TODO look at if we need to change InitObjectMeta() here
+	k8smeta.InitObjectMeta(u.cfg, &secret.ObjectMeta, a.composeService)
+
+	secret.ObjectMeta.Name = u.pullSecretNameForRegistry(registryHost)
+	// TODO: secret.ObjectMeta.OwnerReferences
+
+	log.Debugf("Creating %s\n", secret.ObjectMeta.Name)
+	secretServer, err := u.k8sSecretClient.Create(context.Background(), secret, metav1.CreateOptions{})
+	switch {
+	case k8sError.IsAlreadyExists(err):
+		log.Debugf("k8s secret %s already exists", secret.ObjectMeta.Name)
+	case err != nil:
+		log.Warnf("Failed creating %s: %s\n", secret.ObjectMeta.Name, err)
+	default:
+		log.Tracef("Post-k8sSecretClient.Create %#v\n", secretServer)
+	}
+
+	return name, err
+}
+
+func (u *upRunner) pullSecretNameForRegistry(registryHost string) string {
+	return fmt.Sprintf("pull-secret-%s-%s", u.cfg.EnvironmentID, registryHost)
+}
+
 func (u *upRunner) getAuthForImage(sourceImageRef string, a *app) (string, error) {
-	if u.authConfigurations == nil {
-		authConfigurations, err := alternateDockerClient.NewAuthConfigurationsFromDockerCfg()
-		if err != nil {
-			err = errors.Wrapf(err, "failed to NewAuthConfigurationsFromDockerCfg()")
-			log.Warn(err)
-			return "123", err
-		}
-		u.authConfigurations = authConfigurations
-		//log.Debugf("getAppImageAuths:%+v\n", authConfigurations)
+	s, err, done := u.readAuthConfigurations()
+	if done {
+		return s, err
 	}
 
 	registryHost := strings.Split(sourceImageRef, "/")[0]
 
-	// Support passing ars over the ones found in docker config.json
+	// Support passing vars over the ones found in docker config.json
 	if false && registryHost == u.cfg.ClusterImageStorage.DockerRegistry.Host {
 		var user = u.opts.RegistryUser
 		var pass = util.Ternary(u.opts.RegistryPass, u.cfg.KubeConfig.BearerToken)
@@ -481,10 +527,39 @@ func (u *upRunner) getAuthForImage(sourceImageRef string, a *app) (string, error
 		return docker.EncodeRegistryAuth(user, pass), nil
 	}
 
-	log.Debugf("for sourceImageRef %s, registry: %s\n", sourceImageRef, registryHost)
-	authConfigBytes, _ := json.Marshal(u.authConfigurations.Configs[registryHost])
+	//log.Debugf("for sourceImageRef %s, registry: %s\n", sourceImageRef, registryHost)
+	authConfig, ok := u.authConfigurations.Configs[registryHost]
+	if !ok {
+		authConfig, ok = u.authConfigurations.Configs["registry-1."+registryHost]
+	}
+	authConfigBytes, _ := json.Marshal(authConfig)
 	//log.Tracef("authConfigBytes:%s\n", authConfigBytes)
-	return base64.StdEncoding.EncodeToString(authConfigBytes), nil
+
+	b64AuthConfig := base64.StdEncoding.EncodeToString(authConfigBytes)
+
+	//registryAuth := u.authConfigurations.Configs[registryHost]
+	if len(authConfigBytes) > 0 {
+		name, err := u.createSecretForRegistry(registryHost, a)
+		if err != nil {
+			log.Debugf("Failed to create secret %s (but continuing...)\n", name)
+		}
+	}
+
+	return b64AuthConfig, nil
+}
+
+func (u *upRunner) readAuthConfigurations() (string, error, bool) {
+	if u.authConfigurations == nil {
+		authConfigurations, err := alternateDockerClient.NewAuthConfigurationsFromDockerCfg()
+		if err != nil {
+			err = errors.Wrapf(err, "failed to NewAuthConfigurationsFromDockerCfg()")
+			log.Warn(err)
+			return "123", err, true
+		}
+		u.authConfigurations = authConfigurations
+		log.Tracef("readAuthConfigurations: %+v\n", authConfigurations)
+	}
+	return "", nil, false
 }
 
 func (u *upRunner) getAppImageInfoUser(a *app, inspect *dockerTypes.ImageInspect, sourceImage string) error {
@@ -900,15 +975,7 @@ func (u *upRunner) createPod(app *app) (*v1.Pod, error) {
 			RestartPolicy: getRestartPolicyforService(app),
 		},
 	}
-	var serviceAccountName = os.Getenv("POD_SPEC_SERVICE_ACCOUNT")
-	if serviceAccountName != "" {
-		pod.Spec.ServiceAccountName = serviceAccountName
-	}
-
-	var imagePullSecret = os.Getenv("POD_SPEC_IMAGE_PULL_SECRET")
-	if imagePullSecret != "" {
-		pod.Spec.ImagePullSecrets = []v1.LocalObjectReference{{Name: imagePullSecret}}
-	}
+	u.createPodPullSecrets(app, pod, err)
 
 	app.newLogEntry().Tracef("creating %s", pod)
 
@@ -932,6 +999,26 @@ func (u *upRunner) createPod(app *app) (*v1.Pod, error) {
 	app.newLogEntry().Debugf("created pod %s", pod.ObjectMeta.Name)
 	u.appsThatNeedToBeReady[app] = true
 	return podServer, nil
+}
+
+func (u *upRunner) createPodPullSecrets(app *app, pod *v1.Pod, err error) {
+	serviceAccountName := os.Getenv("POD_SPEC_SERVICE_ACCOUNT")
+	if serviceAccountName != "" {
+		pod.Spec.ServiceAccountName = serviceAccountName
+	}
+
+	imagePullSecret := os.Getenv("POD_SPEC_IMAGE_PULL_SECRET")
+	if imagePullSecret != "" {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, v1.LocalObjectReference{Name: imagePullSecret})
+	}
+
+	registryHost := strings.Split(app.imageInfo.podImage, "/")[0]
+	pullSecret, err := u.createSecretForRegistry(registryHost, app)
+	if err == nil {
+		pod.Spec.ImagePullSecrets = append(pod.Spec.ImagePullSecrets, v1.LocalObjectReference{Name: pullSecret})
+	} else {
+		log.Warnf("Failed to create secret %s (but continuing...)\n", pullSecret)
+	}
 }
 
 func isPodReady(pod *v1.Pod) bool {
