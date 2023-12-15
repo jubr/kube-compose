@@ -36,12 +36,22 @@ import (
 )
 
 // This doesn't deserve the name palette.
-var appColorPalette = []int{
-	37, // gray
-	36, // blue
-	35, // magenta
-	33, // yellow
-	32, // green
+var appColorPalette = []string{
+	//"0;37", // gray -- skip: not colored
+	//"0;36", // cyan -- skip: same as INFO
+	"0;35", // magenta
+	"0;34", // blue
+	"0;33", // yellow
+	"0;32", // green
+	"0;31", // red
+
+	"1;37", // bright gray
+	"1;36", // bright cyan
+	"1;35", // bright magenta
+	"1;34", // bright blue
+	"1;33", // bright yellow
+	"1;32", // bright green
+	"1;31", // bright red
 }
 
 type appImageInfo struct {
@@ -75,7 +85,7 @@ type app struct {
 	imageInfo                            appImageInfo
 	maxObservedPodStatus                 podStatus
 	containersForWhichWeAreStreamingLogs map[string]bool
-	color                                int
+	color                                string
 	reporterRow                          *reporter.Row
 	volumes                              []*appVolume
 	volumeInitImage                      appVolumesInitImage
@@ -147,12 +157,9 @@ func (u *upRunner) initAppsToBeStarted() {
 		}
 		a.reporterRow = u.opts.Reporter.AddRow(a.name())
 		u.appsToBeStarted[a] = true
+
 		a.color = appColorPalette[colorIndex]
-		if colorIndex < len(appColorPalette) {
-			colorIndex++
-		} else {
-			colorIndex = 0
-		}
+		colorIndex = (colorIndex + 1) % len(appColorPalette)
 		if len(a.name()) > u.maxServiceNameLength {
 			u.maxServiceNameLength = len(a.name())
 		}
@@ -1041,7 +1048,7 @@ func (u *upRunner) streamPodLogs(pod *v1.Pod, completedChannel chan interface{},
 	defer util.CloseAndLogError(bodyReader)
 	scanner := bufio.NewScanner(bodyReader)
 	for scanner.Scan() {
-		log.Infof("\x1b[%dm%-*s|\x1b[0m %s", a.color, u.maxServiceNameLength+3, a.name(), scanner.Text())
+		log.Infof("\x1b[%sm%-*s|\x1b[0m %s", a.color, u.maxServiceNameLength+3, a.name(), scanner.Text())
 	}
 	if err = scanner.Err(); err != nil {
 		log.Error(err)
