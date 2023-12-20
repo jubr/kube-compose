@@ -48,5 +48,9 @@ func FindFromObjectMeta(cfg *config.Config, objectMeta *metav1.ObjectMeta) *conf
 }
 
 func GetK8sName(service *config.Service, cfg *config.Config) string {
-	return service.NameEscaped + "-" + cfg.EnvironmentID
+	if cfg.EnvironmentIDNoAppend {
+		return service.NameEscaped
+	} else {
+		return service.NameEscaped + "-" + cfg.EnvironmentID
+	}
 }

@@ -103,6 +103,8 @@ func getCommandConfig(cmd *cobra.Command, args []string) (*config.Config, error)
 	if namespace, exists := getNamespaceFlag(cmd.Flags()); exists {
 		cfg.Namespace = namespace
 	}
+	cfg.EnvironmentIDNoAppend, _ = cmd.Flags().GetBool(envIdNoAppendFlagName)
+
 	if len(args) == 0 {
 		for _, service := range cfg.Services {
 			cfg.AddToFilter(service)
