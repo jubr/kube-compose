@@ -32,6 +32,7 @@ require (
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.9.0 // indirect
+	github.com/fatih/color v1.13.0 // indirect
 	github.com/go-logr/logr v1.2.4 // indirect
 	github.com/go-openapi/jsonpointer v0.19.6 // indirect
 	github.com/go-openapi/jsonreference v0.20.2 // indirect
@@ -45,10 +46,13 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/imdario/mergo v0.3.12 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/ivanpirog/coloredcobra v1.0.1 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/compress v1.11.13 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
+	github.com/mattn/go-colorable v0.1.9 // indirect
+	github.com/mattn/go-isatty v0.0.14 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/term v0.0.0-20210619224110-3f7ff695adc6 // indirect
@@ -86,7 +90,6 @@ replace github.com/Sirupsen/logrus v1.9.0 => github.com/sirupsen/logrus v1.9.3
 
 //replace github.com/sirupsen/logrus => github.com/Sirupsen/logrus v1.4.1
 //replace github.com/Sirupsen/logrus => github.com/sirupsen/logrus v1.4.1
-
 
 //replace cloud.google.com/go => cloud.google.com/go v0.100.2
 replace cloud.google.com/go/compute/metadata => cloud.google.com/go/compute/metadata v0.2.0
