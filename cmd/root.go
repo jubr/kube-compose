@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	cc "github.com/ivanpirog/coloredcobra"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -28,6 +29,14 @@ func Execute() error {
 	}
 	rootCmd.AddCommand(newDownCli(), newUpCli(), newGetCli())
 	setRootCommandFlags(rootCmd)
+	cc.Init(&cc.Config{
+		RootCmd:  rootCmd,
+		Headings: cc.HiCyan + cc.Bold + cc.Underline,
+		Commands: cc.HiYellow + cc.Bold,
+		Example:  cc.Italic,
+		ExecName: cc.Bold,
+		Flags:    cc.Bold,
+	})
 	return rootCmd.Execute()
 }
 
