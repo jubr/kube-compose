@@ -13,9 +13,9 @@ type Options struct {
 	// True to set runAsUser/runAsGroup for each pod based on the user of the pod's image and the "user" key of the pod's docker-compose
 	// service.
 	RunAsUser       bool
-	SkipPush        bool
+	RegistryUser    string
+	RegistryPass    string
 	SkipHostAliases bool
-
-	RegistryUser string
-	RegistryPass string
+	SkipPush        bool
+	TailLines       int64
 }

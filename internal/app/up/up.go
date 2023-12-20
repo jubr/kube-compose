@@ -1089,6 +1089,7 @@ func (u *upRunner) updateAppMaxObservedPodStatus(pod *v1.Pod) error {
 				app.containersForWhichWeAreStreamingLogs[containerStatus.Name] = true
 				getPodLogOptions := &v1.PodLogOptions{
 					Follow:    true,
+					TailLines: &[]int64{u.opts.TailLines}[0], // thanks Go :) @ https://stackoverflow.com/a/30716481/6209965
 					Container: containerStatus.Name,
 				}
 				completedChannel := make(chan interface{})

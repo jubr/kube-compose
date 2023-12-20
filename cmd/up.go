@@ -15,9 +15,8 @@ import (
 
 const (
 	registryUserEnvVarName = envVarPrefix + "REGISTRY_USER"
-	registryUserFlagName   = "registry-user"
+
 	registryPassEnvVarName = envVarPrefix + "REGISTRY_PASS"
-	registryPassFlagName   = "registry-pass"
 )
 
 var registryUserFromEnv = util.Ternary(os.Getenv(registryUserEnvVarName), "unused")
@@ -32,14 +31,15 @@ func newUpCli() *cobra.Command {
 		RunE:  upCommand,
 	}
 	upCmd.PersistentFlags().BoolP("detach", "d", false, "Detached mode: Run containers in the background")
+	upCmd.PersistentFlags().StringP("registry-user", "", registryUserFromEnv,
+		fmt.Sprintf("The docker registry user to authenticate as. Can also be set via environment variable %s. The default is common for Openshift clusters.", registryUserEnvVarName))
+	upCmd.PersistentFlags().StringP("registry-pass", "", registryPassFromEnv,
+		fmt.Sprintf("The docker registry password to authenticate with. Can also be set via environment variable %s. When unset, will use the Bearer Token from Kube config as is common for Openshift clusters.", registryPassEnvVarName))
 	upCmd.PersistentFlags().BoolP("run-as-user", "", false, "When set, the runAsUser/runAsGroup will be set for each pod based on the "+
 		"user of the pod's image and the \"user\" key of the pod's docker-compose service")
-	upCmd.PersistentFlags().BoolP("skip-push", "p", false, "Skip pushing images to registry: assumes they were previously pushed (helps get around connection problems to registry)")
 	upCmd.PersistentFlags().BoolP("skip-host-aliases", "a", false, "Skip adding all services ClusterIP in Pod host aliases (useful when in-cluster name resolving is sufficient)")
-	upCmd.PersistentFlags().StringP(registryUserFlagName, "", registryUserFromEnv,
-		fmt.Sprintf("The docker registry user to authenticate as. Can also be set via environment variable %s. The default is common for Openshift clusters.", registryUserEnvVarName))
-	upCmd.PersistentFlags().StringP(registryPassFlagName, "", registryPassFromEnv,
-		fmt.Sprintf("The docker registry password to authenticate with. Can also be set via environment variable %s. When unset, will use the Bearer Token from Kube config as is common for Openshift clusters.", registryPassEnvVarName))
+	upCmd.PersistentFlags().BoolP("skip-push", "p", false, "Skip pushing images to registry: assumes they were previously pushed (helps get around connection problems to registry)")
+	upCmd.PersistentFlags().Int64P("tail-lines", "t", 10, "Pod history log lines to show when starting to tail logs.")
 	return upCmd
 }
 
@@ -54,6 +54,7 @@ func upCommand(cmd *cobra.Command, args []string) error {
 	opts.RunAsUser, _ = cmd.Flags().GetBool("run-as-user")
 	opts.SkipPush, _ = cmd.Flags().GetBool("skip-push")
 	opts.SkipHostAliases, _ = cmd.Flags().GetBool("skip-host-aliases")
+	opts.TailLines, _ = cmd.Flags().GetInt64("tail-lines")
 
 	opts.Reporter = reporter.New(os.Stdout)
 	if opts.Reporter.IsTerminal() {
@@ -66,8 +67,8 @@ func upCommand(cmd *cobra.Command, args []string) error {
 		}()
 	}
 
-	opts.RegistryUser, _ = cmd.Flags().GetString(registryUserFlagName)
-	opts.RegistryPass, _ = cmd.Flags().GetString(registryPassFlagName)
+	opts.RegistryUser, _ = cmd.Flags().GetString("registry-user")
+	opts.RegistryPass, _ = cmd.Flags().GetString("registry-pass")
 
 	err = up.Run(cfg, opts)
 	if err != nil {
