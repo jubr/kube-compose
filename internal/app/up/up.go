@@ -732,14 +732,17 @@ func (u *upRunner) createServicesAndGetPodHostAliases() ([]v1.HostAlias, error) 
 			},
 		}
 		k8smeta.InitObjectMeta(u.cfg, &service.ObjectMeta, app.composeService)
-		_, err := u.k8sServiceClient.Create(context.Background(), service, metav1.CreateOptions{}) // TODO? need make()?
+		_, err := u.k8sServiceClient.Create(u.opts.Context, service, metav1.CreateOptions{})
+		op := "created"
+		if k8sError.IsAlreadyExists(err) {
+			_, err = u.k8sServiceClient.Update(u.opts.Context, service, metav1.UpdateOptions{})
+			op = "updated"
+		}
 		switch {
-		case k8sError.IsAlreadyExists(err):
-			app.newLogEntry().Debugf("k8s service %s already exists", service.ObjectMeta.Name)
 		case err != nil:
 			return nil, err
 		default:
-			app.newLogEntry().Infof("created k8s service %s", service.ObjectMeta.Name)
+			app.newLogEntry().Infof("%s k8s service %s", op, service.ObjectMeta.Name)
 		}
 	}
 	if expectedServiceCount == 0 {
