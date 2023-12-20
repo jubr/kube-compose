@@ -37,12 +37,13 @@ type ClusterImageStorage struct {
 type Config struct {
 	// All Kubernetes resources are named with "-"+EnvironmentID as a suffix,
 	// and have an additional label "env="+EnvironmentID so that namespaces can be shared.
-	EnvironmentID       string
-	EnvironmentLabel    string
-	KubeConfig          *rest.Config
-	Namespace           string
-	ClusterImageStorage ClusterImageStorage
-	VolumeInitBaseImage *string
+	EnvironmentID         string
+	EnvironmentIDNoAppend bool
+	EnvironmentLabel      string
+	KubeConfig            *rest.Config
+	Namespace             string
+	ClusterImageStorage   ClusterImageStorage
+	VolumeInitBaseImage   *string
 
 	Services map[string]*Service
 }
