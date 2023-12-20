@@ -609,8 +609,8 @@ func (u *upRunner) waitForServiceClusterIPUpdate(service *v1.Service) (*app, err
 	if app == nil {
 		return nil, nil
 	}
-	if service.Spec.Type != "ClusterIP" {
-		return app, k8smeta.ErrorResourcesModifiedExternally()
+	if !slices.Contains([]v1.ServiceType{"ClusterIP", "ExternalName"}, service.Spec.Type) {
+		return app, k8smeta.ErrorWrapResourcesModifiedExternally("While waiting for updated ClusterIP saw unexpected Spec.Type '%s' for service %#v", service.Spec.Type, service)
 	}
 	app.serviceClusterIP = service.Spec.ClusterIP
 	return app, nil
@@ -627,12 +627,12 @@ func (u *upRunner) waitForServiceClusterIPCountRemaining() int {
 }
 
 func (u *upRunner) waitForServiceClusterIPList(expected int, listOptions *metav1.ListOptions) (string, error) {
-	serviceList, err := u.k8sServiceClient.List(context.Background(), *listOptions)
+	serviceList, err := u.k8sServiceClient.List(u.opts.Context, *listOptions)
 	if err != nil {
 		return "", err
 	}
 	if len(serviceList.Items) < expected {
-		return "", k8smeta.ErrorResourcesModifiedExternally()
+		return "", k8smeta.ErrorWrapResourcesModifiedExternally("waitForServiceClusterIPList")
 	}
 	for i := 0; i < len(serviceList.Items); i++ {
 		_, err = u.waitForServiceClusterIPUpdate(&serviceList.Items[i])
@@ -655,7 +655,7 @@ func (u *upRunner) waitForServiceClusterIPWatchEvent(event *k8swatch.Event) erro
 		service := event.Object.(*v1.Service)
 		app := u.findAppFromObjectMeta(&service.ObjectMeta)
 		if app != nil {
-			return k8smeta.ErrorResourcesModifiedExternally()
+			return k8smeta.ErrorWrapResourcesModifiedExternally("waitForServiceClusterIPWatchEvent() While waiting for ClusterIP saw Deleted %#v", app)
 		}
 	default:
 		return fmt.Errorf("got unexpected error event from channel: %+v", event.Object)
@@ -1300,7 +1300,7 @@ func (u *upRunner) runWatchPodsEvent(event *k8swatch.Event) error {
 		pod := event.Object.(*v1.Pod)
 		app := u.findAppFromObjectMeta(&pod.ObjectMeta)
 		if app != nil {
-			return k8smeta.ErrorResourcesModifiedExternally()
+			return k8smeta.ErrorWrapResourcesModifiedExternally("runWatchPodsEvent()")
 		}
 	default:
 		return fmt.Errorf("got unexpected error event from channel: %+v", event.Object)
