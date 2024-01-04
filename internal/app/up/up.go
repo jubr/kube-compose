@@ -493,15 +493,17 @@ func (u *upRunner) createSecretForRegistry(registryHost string, a *app) (string,
 	secret.ObjectMeta.Name = u.pullSecretNameForRegistry(registryHost)
 	// TODO: secret.ObjectMeta.OwnerReferences
 
-	log.Debugf("Creating %s\n", secret.ObjectMeta.Name)
-	secretServer, err := u.k8sSecretClient.Create(context.Background(), secret, metav1.CreateOptions{})
+	_, err = u.k8sSecretClient.Create(u.opts.Context, secret, metav1.CreateOptions{})
+	op := "created"
+	if k8sError.IsAlreadyExists(err) {
+		_, err = u.k8sSecretClient.Update(u.opts.Context, secret, metav1.UpdateOptions{})
+		op = "updated"
+	}
 	switch {
-	case k8sError.IsAlreadyExists(err):
-		log.Debugf("k8s secret %s already exists", secret.ObjectMeta.Name)
 	case err != nil:
 		log.Warnf("Failed creating %s: %s\n", secret.ObjectMeta.Name, err)
 	default:
-		log.Tracef("Post-k8sSecretClient.Create %#v\n", secretServer)
+		log.Debugf("%s secret %s\n", op, secret.ObjectMeta.Name)
 	}
 
 	return name, err
@@ -609,8 +611,8 @@ func (u *upRunner) waitForServiceClusterIPUpdate(service *v1.Service) (*app, err
 	if app == nil {
 		return nil, nil
 	}
-	if service.Spec.Type != "ClusterIP" {
-		return app, k8smeta.ErrorResourcesModifiedExternally()
+	if !slices.Contains([]v1.ServiceType{"ClusterIP", "ExternalName"}, service.Spec.Type) {
+		return app, k8smeta.ErrorWrapResourcesModifiedExternally("While waiting for updated ClusterIP saw unexpected Spec.Type '%s' for service %#v", service.Spec.Type, service)
 	}
 	app.serviceClusterIP = service.Spec.ClusterIP
 	return app, nil
@@ -627,12 +629,12 @@ func (u *upRunner) waitForServiceClusterIPCountRemaining() int {
 }
 
 func (u *upRunner) waitForServiceClusterIPList(expected int, listOptions *metav1.ListOptions) (string, error) {
-	serviceList, err := u.k8sServiceClient.List(context.Background(), *listOptions)
+	serviceList, err := u.k8sServiceClient.List(u.opts.Context, *listOptions)
 	if err != nil {
 		return "", err
 	}
 	if len(serviceList.Items) < expected {
-		return "", k8smeta.ErrorResourcesModifiedExternally()
+		return "", k8smeta.ErrorWrapResourcesModifiedExternally("waitForServiceClusterIPList")
 	}
 	for i := 0; i < len(serviceList.Items); i++ {
 		_, err = u.waitForServiceClusterIPUpdate(&serviceList.Items[i])
@@ -655,7 +657,7 @@ func (u *upRunner) waitForServiceClusterIPWatchEvent(event *k8swatch.Event) erro
 		service := event.Object.(*v1.Service)
 		app := u.findAppFromObjectMeta(&service.ObjectMeta)
 		if app != nil {
-			return k8smeta.ErrorResourcesModifiedExternally()
+			return k8smeta.ErrorWrapResourcesModifiedExternally("waitForServiceClusterIPWatchEvent() While waiting for ClusterIP saw Deleted %#v", app)
 		}
 	default:
 		return fmt.Errorf("got unexpected error event from channel: %+v", event.Object)
@@ -732,14 +734,17 @@ func (u *upRunner) createServicesAndGetPodHostAliases() ([]v1.HostAlias, error) 
 			},
 		}
 		k8smeta.InitObjectMeta(u.cfg, &service.ObjectMeta, app.composeService)
-		_, err := u.k8sServiceClient.Create(context.Background(), service, metav1.CreateOptions{}) // TODO? need make()?
+		_, err := u.k8sServiceClient.Create(u.opts.Context, service, metav1.CreateOptions{})
+		op := "created"
+		if k8sError.IsAlreadyExists(err) {
+			_, err = u.k8sServiceClient.Update(u.opts.Context, service, metav1.UpdateOptions{})
+			op = "updated"
+		}
 		switch {
-		case k8sError.IsAlreadyExists(err):
-			app.newLogEntry().Debugf("k8s service %s already exists", service.ObjectMeta.Name)
 		case err != nil:
 			return nil, err
 		default:
-			app.newLogEntry().Infof("created k8s service %s", service.ObjectMeta.Name)
+			app.newLogEntry().Infof("%s k8s service %s", op, service.ObjectMeta.Name)
 		}
 	}
 	if expectedServiceCount == 0 {
@@ -1300,7 +1305,7 @@ func (u *upRunner) runWatchPodsEvent(event *k8swatch.Event) error {
 		pod := event.Object.(*v1.Pod)
 		app := u.findAppFromObjectMeta(&pod.ObjectMeta)
 		if app != nil {
-			return k8smeta.ErrorResourcesModifiedExternally()
+			return k8smeta.ErrorWrapResourcesModifiedExternally("runWatchPodsEvent()")
 		}
 	default:
 		return fmt.Errorf("got unexpected error event from channel: %+v", event.Object)

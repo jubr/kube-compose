@@ -32,9 +32,9 @@ func newUpCli() *cobra.Command {
 	}
 	upCmd.PersistentFlags().BoolP("detach", "d", false, "Detached mode: Run containers in the background")
 	upCmd.PersistentFlags().StringP("registry-user", "", registryUserFromEnv,
-		fmt.Sprintf("The docker registry user to authenticate as. Can also be set via environment variable %s. The default is common for Openshift clusters.", registryUserEnvVarName))
+		fmt.Sprintf("The docker registry user to authenticate as. The default is common for Openshift clusters. (env %s)", registryUserEnvVarName))
 	upCmd.PersistentFlags().StringP("registry-pass", "", registryPassFromEnv,
-		fmt.Sprintf("The docker registry password to authenticate with. Can also be set via environment variable %s. When unset, will use the Bearer Token from Kube config as is common for Openshift clusters.", registryPassEnvVarName))
+		fmt.Sprintf("The docker registry password to authenticate with. When unset, will use the Bearer Token from Kube config as is common for Openshift clusters. (env %s)", registryPassEnvVarName))
 	upCmd.PersistentFlags().BoolP("run-as-user", "", false, "When set, the runAsUser/runAsGroup will be set for each pod based on the "+
 		"user of the pod's image and the \"user\" key of the pod's docker-compose service")
 	upCmd.PersistentFlags().BoolP("skip-host-aliases", "a", false, "Skip adding all services ClusterIP in Pod host aliases (useful when in-cluster name resolving is sufficient)")

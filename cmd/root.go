@@ -43,12 +43,12 @@ func Execute() error {
 
 func setRootCommandFlags(rootCmd *cobra.Command) {
 	rootCmd.PersistentFlags().StringSliceP(fileFlagName, "f", []string{}, "Specify an alternate compose file")
-	rootCmd.PersistentFlags().StringP(namespaceFlagName, "n", "", fmt.Sprintf("namespace for environment. Can also be set via "+
-		"environment variable %s. Default to the namespace of the current kube config context", namespaceEnvVarName))
+	rootCmd.PersistentFlags().StringP(namespaceFlagName, "n", "", fmt.Sprintf("namespace for environment. "+
+		"Defaults to the namespace of the current kube config context. (env %s)", namespaceEnvVarName))
 	rootCmd.PersistentFlags().StringP(envIDFlagName, "e", "", "used to isolate environments deployed to a shared namespace, "+
-		"by (1) using this value as a suffix of pod and service names and (2) using this value to isolate selectors. Either this flag or "+
-		fmt.Sprintf("the environment variable %s must be set", envIDEnvVarName))
+		"by (1) using this value as a suffix of pod and service names and (2) using this value to isolate selectors. "+
+		fmt.Sprintf("(env %s)", envIDEnvVarName))
 	rootCmd.PersistentFlags().BoolP(envIdNoAppendFlagName, "E", false, "Do not append the '-{env-id}' to the k8s service/pod names (So DNS lookups can be done on the exact service names as listed in the docker-compose yaml)")
-	rootCmd.PersistentFlags().StringP(logLevelFlagName, "l", "", fmt.Sprintf("Set to one of %s. Can also be set via environment variable "+
-		"%s. Defaults to %s", formattedLogLevelList, logLevelEnvVarName, logLevelDefault.String()))
+	rootCmd.PersistentFlags().StringP(logLevelFlagName, "l", "", fmt.Sprintf("Set to one of %s. "+
+		"(env %s, default %s)", formattedLogLevelList, logLevelEnvVarName, logLevelDefault.String()))
 }

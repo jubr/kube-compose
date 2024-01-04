@@ -2,6 +2,7 @@ package k8smeta
 
 import (
 	"fmt"
+	"github.com/pkg/errors"
 
 	"github.com/kube-compose/kube-compose/internal/app/config"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -14,6 +15,9 @@ const AnnotationName = "kube-compose/service"
 // ErrorResourcesModifiedExternally returns an error indicating that resources managed by kube-compose have been modified externally.
 func ErrorResourcesModifiedExternally() error {
 	return fmt.Errorf("one or more resources appear to have been modified by an external process, aborting")
+}
+func ErrorWrapResourcesModifiedExternally(fmt string, args ...any) error {
+	return errors.Wrapf(ErrorResourcesModifiedExternally(), fmt, args...)
 }
 
 // InitCommonLabels adds the labels for the specified docker compose service to the string map.
