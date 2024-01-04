@@ -493,15 +493,17 @@ func (u *upRunner) createSecretForRegistry(registryHost string, a *app) (string,
 	secret.ObjectMeta.Name = u.pullSecretNameForRegistry(registryHost)
 	// TODO: secret.ObjectMeta.OwnerReferences
 
-	log.Debugf("Creating %s\n", secret.ObjectMeta.Name)
-	secretServer, err := u.k8sSecretClient.Create(context.Background(), secret, metav1.CreateOptions{})
+	_, err = u.k8sSecretClient.Create(u.opts.Context, secret, metav1.CreateOptions{})
+	op := "created"
+	if k8sError.IsAlreadyExists(err) {
+		_, err = u.k8sSecretClient.Update(u.opts.Context, secret, metav1.UpdateOptions{})
+		op = "updated"
+	}
 	switch {
-	case k8sError.IsAlreadyExists(err):
-		log.Debugf("k8s secret %s already exists", secret.ObjectMeta.Name)
 	case err != nil:
 		log.Warnf("Failed creating %s: %s\n", secret.ObjectMeta.Name, err)
 	default:
-		log.Tracef("Post-k8sSecretClient.Create %#v\n", secretServer)
+		log.Debugf("%s secret %s\n", op, secret.ObjectMeta.Name)
 	}
 
 	return name, err
