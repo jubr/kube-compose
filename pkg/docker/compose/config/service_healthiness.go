@@ -4,6 +4,7 @@ package config
 type ServiceHealthiness int
 
 const (
-	ServiceStarted ServiceHealthiness = 0
-	ServiceHealthy ServiceHealthiness = 1
+	ServiceStarted               ServiceHealthiness = 0
+	ServiceHealthy               ServiceHealthiness = 1
+	ServiceCompletedSuccessfully ServiceHealthiness = 2
 )

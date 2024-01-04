@@ -98,6 +98,8 @@ func (t *dependsOn) Decode(into mapdecode.Into) error {
 				t.Values[service] = ServiceHealthy
 			case "service_started":
 				t.Values[service] = ServiceStarted
+			case "service_completed_successfully":
+				t.Values[service] = ServiceCompletedSuccessfully
 			default:
 				return fmt.Errorf("depends_on map contains an entry with an invalid condition: %s", obj.Condition)
 			}

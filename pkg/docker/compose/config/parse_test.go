@@ -270,6 +270,9 @@ func TestDependsOnDecode_MapSuccess(t *testing.T) {
 		"service-bla-2": {
 			"condition": "service_started",
 		},
+		"service-bla-3": {
+			"condition": "service_completed_successfully",
+		},
 	}
 	var dst dependsOn
 	err := mapdecode.Decode(&dst, src)
@@ -279,6 +282,7 @@ func TestDependsOnDecode_MapSuccess(t *testing.T) {
 	if !reflect.DeepEqual(dst.Values, map[string]ServiceHealthiness{
 		"service-bla-1": ServiceHealthy,
 		"service-bla-2": ServiceStarted,
+		"service-bla-3": ServiceCompletedSuccessfully,
 	}) {
 		t.Error(dst)
 	}

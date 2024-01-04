@@ -1127,9 +1127,13 @@ func (u *upRunner) setAppMaxObservedPodStatus(app *app, s podStatus) {
 		switch {
 		case s == podStatusStarted:
 			app.reporterRow.AddStatus(reporter.StatusRunning)
-		case s >= podStatusReady:
+		case s == podStatusReady:
 			app.reporterRow.RemoveStatus(reporter.StatusRunning)
 			app.reporterRow.AddStatus(reporter.StatusReady)
+		case s >= podStatusCompleted:
+			app.reporterRow.RemoveStatus(reporter.StatusRunning)
+			app.reporterRow.RemoveStatus(reporter.StatusReady)
+			app.reporterRow.AddStatus(reporter.StatusCompleted)
 		}
 	}
 	app.newLogEntry().Debugf("pod status %s", &app.maxObservedPodStatus)
@@ -1159,12 +1163,18 @@ func (u *upRunner) createPodsIfNeeded() error {
 		for name, healthiness := range app1.composeService.DockerComposeService.DependsOn {
 			composeService := u.cfg.Services[name]
 			app2 := u.apps[composeService.Name()]
-			if healthiness == dockerComposeConfig.ServiceHealthy {
+			switch healthiness {
+			case dockerComposeConfig.ServiceHealthy:
 				if app2.maxObservedPodStatus != podStatusReady {
 					createPod = false
 				}
-			} else {
+			case dockerComposeConfig.ServiceStarted:
 				if app2.maxObservedPodStatus != podStatusStarted && app2.maxObservedPodStatus != podStatusReady {
+					createPod = false
+				}
+			case dockerComposeConfig.ServiceCompletedSuccessfully:
+				// Note the assumption here is made that podStatusCompleted implies successfully. PRs welcome.
+				if app2.maxObservedPodStatus != podStatusCompleted {
 					createPod = false
 				}
 			}
@@ -1190,10 +1200,13 @@ func (u *upRunner) formatCreatePodReason(app1 *app) string {
 			reason.WriteString(", ")
 		}
 		reason.WriteString(name)
-		if healthiness == dockerComposeConfig.ServiceHealthy {
-			reason.WriteString(": ready")
-		} else {
+		switch healthiness {
+		case dockerComposeConfig.ServiceStarted:
 			reason.WriteString(": running")
+		case dockerComposeConfig.ServiceHealthy:
+			reason.WriteString(": ready")
+		case dockerComposeConfig.ServiceCompletedSuccessfully:
+			reason.WriteString(": completed")
 		}
 		comma = true
 	}
