@@ -8,6 +8,7 @@ require (
 	github.com/docker/distribution v2.8.3+incompatible
 	github.com/docker/docker v24.0.7+incompatible
 	github.com/fsouza/go-dockerclient v1.10.1
+	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-version v1.6.0
 	github.com/ivanpirog/coloredcobra v1.0.1
 	github.com/opencontainers/go-digest v1.0.0
