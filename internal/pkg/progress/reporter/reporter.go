@@ -57,6 +57,11 @@ var (
 		TextWidth: 8,
 		Priority:  3,
 	}
+	StatusCompleted = &Status{
+		Text:      "completed ✅", // checkmark
+		TextWidth: 12,
+		Priority:  4,
+	}
 )
 
 type Status struct {

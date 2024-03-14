@@ -183,13 +183,13 @@ jobs:
     steps:
       - checkout
       - go/load-cache
+      - go/mod-download # prep for go/test
       - run:
           name: "get goveralls"
           command: |
             set -ux
             go get     github.com/mattn/goveralls
             go install github.com/mattn/goveralls
-            go get golang.org/x/crypto/ssh/terminal@v0.0.0-20210921155107-089bfa567519
       # https://circleci.com/developer/orbs/orb/circleci/go
       - go/test: # Runs 'go test ./...' but includes extensive parameterization for finer tuning.
           covermode: atomic
@@ -202,6 +202,7 @@ jobs:
           command: |
             set -ux
             $GOPATH/bin/goveralls -coverprofile=coverage.txt -service=circle-ci
+      - go/save-cache
       - store_test_results:
           path: ./
 

@@ -176,3 +176,7 @@ func Ternary(truthy string, otherwise string) string {
 	}
 	return otherwise
 }
+
+func AnsiColorWrap(s, before, after string) string {
+	return fmt.Sprintf("\x1b[%sm%s\x1b[%sm", before, s, after)
+}

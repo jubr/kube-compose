@@ -130,3 +130,25 @@ func TestFormatCreatePodReason(t *testing.T) {
 		t.Error(s)
 	}
 }
+
+func TestFormatCreatePodReasonCompleted(t *testing.T) {
+	cfg := &config.Config{}
+	serviceA := cfg.AddService(&dockerComposeConfig.Service{
+		Name: "a",
+	})
+	cfg.AddService(&dockerComposeConfig.Service{
+		Name: "b",
+	})
+	serviceA.DockerComposeService.DependsOn = map[string]dockerComposeConfig.ServiceHealthiness{}
+	serviceA.DockerComposeService.DependsOn["b"] = dockerComposeConfig.ServiceCompletedSuccessfully
+
+	u := &upRunner{
+		cfg: cfg,
+	}
+	u.initApps()
+	appA := u.apps["a"]
+	s := u.formatCreatePodReason(appA)
+	if s != "all depends_on conditions satisfied (b: completed)" {
+		t.Error(s)
+	}
+}
