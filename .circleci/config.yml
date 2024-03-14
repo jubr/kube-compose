@@ -182,7 +182,7 @@ jobs:
       tag: '1.21'
     steps:
       - checkout
-      - go/load-cache
+      #- go/load-cache skip loading cache, this seems to load old/incorrect versions
       - run:
           name: "get goveralls"
           command: |
@@ -202,6 +202,7 @@ jobs:
           command: |
             set -ux
             $GOPATH/bin/goveralls -coverprofile=coverage.txt -service=circle-ci
+      - go/save-cache
       - store_test_results:
           path: ./
 
