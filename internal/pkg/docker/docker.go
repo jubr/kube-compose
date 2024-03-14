@@ -6,7 +6,8 @@ import (
 	"encoding/json"
 	"io"
 
-	dockerTypes "github.com/docker/docker/api/types"
+	dockerCliTypes "github.com/docker/cli/cli/config/types"
+	dockerApiTypes "github.com/docker/docker/api/types"
 	"github.com/kube-compose/kube-compose/internal/pkg/util"
 )
 
@@ -18,7 +19,7 @@ const (
 )
 
 func EncodeRegistryAuth(username, password string) string {
-	authConfig := dockerTypes.AuthConfig{
+	authConfig := dockerCliTypes.AuthConfig{
 		Username: username,
 		Password: password,
 	}
@@ -27,11 +28,11 @@ func EncodeRegistryAuth(username, password string) string {
 }
 
 type ImagePuller interface {
-	ImagePull(ctx context.Context, image string, pushOptions dockerTypes.ImagePullOptions) (io.ReadCloser, error)
+	ImagePull(ctx context.Context, image string, pushOptions dockerApiTypes.ImagePullOptions) (io.ReadCloser, error)
 }
 
 func PullImage(ctx context.Context, puller ImagePuller, image, registryAuth string, onUpdate func(*PullOrPush)) (string, error) {
-	pullOptions := dockerTypes.ImagePullOptions{
+	pullOptions := dockerApiTypes.ImagePullOptions{
 		RegistryAuth: registryAuth,
 	}
 	readCloser, err := puller.ImagePull(ctx, image, pullOptions)
@@ -44,11 +45,11 @@ func PullImage(ctx context.Context, puller ImagePuller, image, registryAuth stri
 }
 
 type ImagePusher interface {
-	ImagePush(ctx context.Context, image string, pushOptions dockerTypes.ImagePushOptions) (io.ReadCloser, error)
+	ImagePush(ctx context.Context, image string, pushOptions dockerApiTypes.ImagePushOptions) (io.ReadCloser, error)
 }
 
 func PushImage(ctx context.Context, pusher ImagePusher, image, registryAuth string, onUpdate func(*PullOrPush)) (string, error) {
-	pushOptions := dockerTypes.ImagePushOptions{
+	pushOptions := dockerApiTypes.ImagePushOptions{
 		RegistryAuth: registryAuth,
 	}
 	readCloser, err := pusher.ImagePush(ctx, image, pushOptions)
