@@ -182,19 +182,14 @@ jobs:
       tag: '1.21'
     steps:
       - checkout
-      #- go/load-cache skip loading cache, this seems to load old/incorrect versions
+      - go/load-cache
+      - go/mod-download # prep for go/test
       - run:
           name: "get goveralls"
           command: |
             set -ux
-            ls -la
-            : prepare for 'go test'
-            cat go.mod
-            go mod download
-            : get goveralls too
             go get     github.com/mattn/goveralls
             go install github.com/mattn/goveralls
-            ##why was this here again?## go get golang.org/x/crypto/ssh/terminal@v0.0.0-20210921155107-089bfa567519
       # https://circleci.com/developer/orbs/orb/circleci/go
       - go/test: # Runs 'go test ./...' but includes extensive parameterization for finer tuning.
           covermode: atomic
