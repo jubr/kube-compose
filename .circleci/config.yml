@@ -187,11 +187,14 @@ jobs:
           name: "get goveralls"
           command: |
             set -ux
+            ls -la
+            : prepare for 'go test'
+            cat go.mod
+            go mod download
+            : get goveralls too
             go get     github.com/mattn/goveralls
             go install github.com/mattn/goveralls
-            go get golang.org/x/crypto/ssh/terminal@v0.0.0-20210921155107-089bfa567519
-            : prepare for 'go test'
-            go mod download
+            ##why was this here again?## go get golang.org/x/crypto/ssh/terminal@v0.0.0-20210921155107-089bfa567519
       # https://circleci.com/developer/orbs/orb/circleci/go
       - go/test: # Runs 'go test ./...' but includes extensive parameterization for finer tuning.
           covermode: atomic
