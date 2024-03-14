@@ -6,32 +6,35 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	//"github.com/carlmjohnson/truthy"
-	"github.com/kube-compose/kube-compose/pkg/expanduser"
 	"io"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/docker/distribution/digestset"
 	dockerRef "github.com/docker/distribution/reference"
 	dockerTypes "github.com/docker/docker/api/types"
 	dockerClient "github.com/docker/docker/client"
 	alternateDockerClient "github.com/fsouza/go-dockerclient"
+	"github.com/google/go-cmp/cmp"
 	"github.com/kube-compose/kube-compose/internal/app/config"
 	"github.com/kube-compose/kube-compose/internal/app/k8smeta"
 	"github.com/kube-compose/kube-compose/internal/pkg/docker"
 	"github.com/kube-compose/kube-compose/internal/pkg/progress/reporter"
 	"github.com/kube-compose/kube-compose/internal/pkg/util"
 	dockerComposeConfig "github.com/kube-compose/kube-compose/pkg/docker/compose/config"
+	"github.com/kube-compose/kube-compose/pkg/expanduser"
 	goDigest "github.com/opencontainers/go-digest"
 	"github.com/pkg/errors"
 	log "github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8sError "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	k8swatch "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
@@ -89,9 +92,11 @@ type app struct {
 	maxObservedPodStatus                 podStatus
 	containersForWhichWeAreStreamingLogs map[string]bool
 	color                                string
+	coloredName                          string
 	reporterRow                          *reporter.Row
 	volumes                              []*appVolume
 	volumeInitImage                      appVolumesInitImage
+	lastEventObject                      *runtime.Object
 }
 
 func (a *app) hasService() bool {
@@ -106,6 +111,18 @@ func (a *app) newLogEntry() *log.Entry {
 	return log.WithFields(log.Fields{
 		"service": a.name(),
 	})
+}
+
+// Color diff the incoming event with the last seen event for this app
+func (a *app) diffEvent(event *k8swatch.Event, u *upRunner) {
+	diff := cmp.Diff(a.lastEventObject, &event.Object)
+
+	diff = u.diffRegexpDel.ReplaceAllString(diff, "- \x1b[0;31m${1}\x1b[0m")
+	diff = u.diffRegexpAdd.ReplaceAllString(diff, "+ \x1b[0;32m${1}\x1b[0m")
+
+	log.Debugf("Service %s event %s diff %s", a.coloredName, event.Type, diff)
+
+	a.lastEventObject = &event.Object
 }
 
 type hostAliases struct {
@@ -128,6 +145,8 @@ type upRunner struct {
 	appsToBeStarted       map[*app]bool
 	cfg                   *config.Config
 	completedChannels     []chan interface{}
+	diffRegexpDel         *regexp.Regexp
+	diffRegexpAdd         *regexp.Regexp
 	dockerClient          *dockerClient.Client
 	k8sClientset          *kubernetes.Clientset
 	k8sServiceClient      clientV1.ServiceInterface
@@ -165,6 +184,7 @@ func (u *upRunner) initAppsToBeStarted() {
 		u.appsToBeStarted[a] = true
 
 		a.color = appColorPalette[colorIndex]
+		a.coloredName = util.AnsiColorWrap(a.name(), a.color, "0")
 		colorIndex = (colorIndex + 1) % len(appColorPalette)
 		if len(a.name()) > u.maxServiceNameLength {
 			u.maxServiceNameLength = len(a.name())
@@ -298,7 +318,7 @@ func (u *upRunner) pushImage(sourceImageID, name, tag, imageDescr string, a *app
 	var digest string
 	registryAuth, _ := u.getAuthForImage(imagePush, a)
 	if u.opts.SkipPush {
-		log.Infof("--no-push %s\n", imagePush)
+		log.Debugf("--no-push %s\n", imagePush)
 	} else {
 		log.Debugf("pushing %s\n", imagePush)
 		digest, err = docker.PushImage(u.opts.Context, u.dockerClient, imagePush, registryAuth, func(push *docker.PullOrPush) {
@@ -333,6 +353,8 @@ func (u *upRunner) initApps() {
 	u.apps = make(map[string]*app, len(u.cfg.Services))
 	u.appsThatNeedToBeReady = map[*app]bool{}
 	u.secretsDeployed = map[string]bool{}
+	u.diffRegexpDel = regexp.MustCompile(`(?m)^- (.+)$`)
+	u.diffRegexpAdd = regexp.MustCompile(`(?m)^\+ (.+)$`)
 	for _, composeService := range u.cfg.Services {
 		app := &app{
 			composeService:                       composeService,
@@ -744,7 +766,7 @@ func (u *upRunner) createServicesAndGetPodHostAliases() ([]v1.HostAlias, error) 
 		case err != nil:
 			return nil, err
 		default:
-			app.newLogEntry().Infof("%s k8s service %s", op, service.ObjectMeta.Name)
+			app.newLogEntry().Debugf("%s k8s service %s", op, service.ObjectMeta.Name)
 		}
 	}
 	if expectedServiceCount == 0 {
@@ -1254,6 +1276,9 @@ func (u *upRunner) run() error {
 	u.initApps()
 	u.initAppsToBeStarted()
 	u.initVolumeInfo()
+	if u.opts.SkipPush {
+		log.Warn("option --skip-push is in effect: not pushing images to remote registries (assuming that was done on a previous run)")
+	}
 	err := u.initKubernetesClientset()
 	if err != nil {
 		return err
@@ -1307,16 +1332,20 @@ func (u *upRunner) run() error {
 }
 
 func (u *upRunner) runWatchPodsEvent(event *k8swatch.Event) error {
+	//log.Tracef("Incoming event %s from channel: %+v", event.Type, event.Object)
+	pod := event.Object.(*v1.Pod)
+	app := u.findAppFromObjectMeta(&pod.ObjectMeta)
+	if u.opts.EventDiffs {
+		app.diffEvent(event, u)
+	}
 	switch event.Type {
 	case k8swatch.Added, k8swatch.Modified:
-		pod := event.Object.(*v1.Pod)
 		err := u.updateAppMaxObservedPodStatus(pod)
 		if err != nil {
 			return err
 		}
 	case k8swatch.Deleted:
-		pod := event.Object.(*v1.Pod)
-		app := u.findAppFromObjectMeta(&pod.ObjectMeta)
+		//pod := event.Object.(*v1.Pod)
 		if app != nil {
 			return k8smeta.ErrorWrapResourcesModifiedExternally("runWatchPodsEvent()")
 		}
@@ -1332,13 +1361,18 @@ func (u *upRunner) runWatchPods(resourceVersion string) error {
 		return nil
 	}
 	listOptions := metav1.ListOptions{
-		LabelSelector: u.cfg.EnvironmentLabel + "=" + u.cfg.EnvironmentID,
+		LabelSelector:   u.cfg.EnvironmentLabel + "=" + u.cfg.EnvironmentID,
+		ResourceVersion: resourceVersion,
+		Watch:           true,
+		TimeoutSeconds:  &[]int64{int64(60 * time.Minute)}[0],
+		// Also need initial events, in case we're connecting to an already-running K8s cluster
+		//SendInitialEvents:    &[]bool{true}[0], // thanks Go :) @ https://stackoverflow.com/a/30716481/6209965
+		//ResourceVersionMatch: "NotOlderThan",   // NotOlderThan | Exact
 	}
-	listOptions.ResourceVersion = resourceVersion
-	listOptions.Watch = true
-	watch, err := u.k8sPodClient.Watch(context.Background(), listOptions)
+
+	watch, err := u.k8sPodClient.Watch(u.opts.Context, listOptions)
 	if err != nil {
-		return err
+		return errors.Wrapf(err, "Failed to Watch pod events (RV:%s)", resourceVersion)
 	}
 	defer watch.Stop()
 	eventChannel := watch.ResultChan()
