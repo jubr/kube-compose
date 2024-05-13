@@ -8,7 +8,7 @@ go 1.21
 require (
 	github.com/docker/cli v25.0.4+incompatible
 	github.com/docker/distribution v2.8.3+incompatible
-	github.com/docker/docker v25.0.4+incompatible
+	github.com/docker/docker v26.1.2+incompatible
 	github.com/fsouza/go-dockerclient v1.11.0
 	github.com/google/go-cmp v0.6.0
 	github.com/hashicorp/go-version v1.6.0
@@ -58,6 +58,7 @@ require (
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.9 // indirect
 	github.com/mattn/go-isatty v0.0.14 // indirect
+	github.com/moby/docker-image-spec v1.3.1 // indirect
 	github.com/moby/patternmatcher v0.6.0 // indirect
 	github.com/moby/sys/sequential v0.5.0 // indirect
 	github.com/moby/sys/user v0.1.0 // indirect
